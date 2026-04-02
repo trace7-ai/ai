@@ -1,6 +1,6 @@
 import json
 
-from mira_roles import ROLE_REGISTRY, get_role
+from mira_roles import get_role
 
 SCHEMA_VERSION = "v1"
 DEFAULT_MAX_TOKENS = 4000
@@ -9,6 +9,7 @@ DEFAULT_TIMEOUT_SEC = 180
 MAX_TIMEOUT_SEC = 600
 SESSION_MODES = {"sticky", "branch", "ephemeral"}
 FILE_MANIFEST_MODES = {"none", "explicit"}
+CONTENT_FORMATS = {"auto", "structured", "markdown", "text"}
 
 
 def _require_string(value, field: str) -> str:
@@ -111,6 +112,15 @@ def _normalize_file_manifest(raw_manifest) -> dict:
     }
 
 
+def _normalize_content_format(raw_content_format, role) -> str:
+    if raw_content_format is None:
+        return role.resolve_content_format("auto")
+    content_format = _require_string(raw_content_format, "content_format")
+    if content_format not in CONTENT_FORMATS:
+        raise ValueError(f"unsupported content_format: {content_format}")
+    return role.resolve_content_format(content_format)
+
+
 def normalize_request(raw: dict) -> dict:
     if not isinstance(raw, dict):
         raise ValueError("request body must be a JSON object")
@@ -136,12 +146,14 @@ def normalize_request(raw: dict) -> dict:
         raise ValueError("timeout_sec must be an integer between 10 and 600")
     session = _normalize_session(raw.get("session"))
     file_manifest = _normalize_file_manifest(raw.get("file_manifest"))
+    content_format = _normalize_content_format(raw.get("content_format"), role)
     if file_manifest["mode"] == "explicit" and not session["context_hint"]["workspace_root"]:
         raise ValueError("explicit file_manifest requires session.context_hint.workspace_root")
     return {
         "version": SCHEMA_VERSION,
         "role": role.name,
         "request_id": _optional_string(raw.get("request_id"), "request_id"),
+        "content_format": content_format,
         "session": session,
         "file_manifest": file_manifest,
         "task": task,
@@ -174,20 +186,32 @@ def build_prompt(request: dict) -> str:
     return role.build_prompt(request)
 
 
-def validate_result(role_name: str, result: dict) -> dict:
+def validate_result(role_name: str, result, content_format: str):
     role = get_role(role_name)
     if role is None:
         raise ValueError(f"unsupported role: {role_name}")
-    return role.validate_result(result)
+    return role.validate_result(result, content_format)
 
 
-def build_success_response(role: str, request_id, model: str, result: dict) -> dict:
+def parse_model_result(role_name: str, text: str, content_format: str):
+    parsed = extract_json_object(text) if content_format == "structured" else text.strip()
+    return validate_result(role_name, parsed, content_format)
+
+
+def build_success_response(
+    role: str,
+    request_id,
+    model: str,
+    result,
+    content_type: str,
+) -> dict:
     return {
         "version": SCHEMA_VERSION,
         "status": "ok",
         "role": role,
         "request_id": request_id,
         "model": model,
+        "content_type": content_type,
         "result": result,
         "errors": [],
         "token_usage": {"input": None, "output": None},
@@ -204,6 +228,7 @@ def build_error_response(code: str, message: str, role=None, request_id=None, mo
         "role": role,
         "request_id": request_id,
         "model": model,
+        "content_type": None,
         "result": None,
         "errors": [{"code": code, "message": message}],
         "token_usage": {"input": None, "output": None},

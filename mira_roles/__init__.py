@@ -1,8 +1,10 @@
 from mira_roles.planner import PlannerRole
+from mira_roles.reader import ReaderRole
 from mira_roles.reviewer import ReviewerRole
 
 ROLE_REGISTRY = {
     "planner": PlannerRole(),
+    "reader": ReaderRole(),
     "reviewer": ReviewerRole(),
 }
 

@@ -1,7 +1,7 @@
 {
   "version": "v1",
   "type": "object",
-  "required": ["version", "status", "role", "model", "errors", "token_usage"],
+  "required": ["version", "status", "role", "model", "content_type", "errors", "token_usage"],
   "properties": {
     "version": {
       "type": "string",
@@ -16,6 +16,10 @@
     },
     "request_id": {
       "type": ["string", "null"]
+    },
+    "content_type": {
+      "type": ["string", "null"],
+      "enum": ["structured", "markdown", "text", null]
     },
     "session": {
       "type": ["object", "null"],
@@ -58,7 +62,7 @@
       "type": ["string", "null"]
     },
     "result": {
-      "type": ["object", "null"]
+      "type": ["object", "string", "null"]
     },
     "errors": {
       "type": "array",

@@ -7,7 +7,7 @@ VERSION = "1.0"
 ASK_HELP = """Mira AI-First CLI
 
 Usage
-  mira ask --task "..." [--role planner|reviewer] [--session ID] [--context-file PATH] [--file PATH] [--format json]
+  mira ask --task "..." [--role planner|reader|reviewer] [--content-format structured|markdown|text] [--session ID] [--context-file PATH] [--file PATH] [--format json]
   mira ask --input-file request.json --format json
   mira "task text"
 

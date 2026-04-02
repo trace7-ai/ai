@@ -59,6 +59,7 @@ def _request(session_id: str) -> dict:
         "version": "v1",
         "role": "planner",
         "request_id": "req-1",
+        "content_format": "structured",
         "session": {
             "mode": "sticky",
             "session_id": session_id,
@@ -76,7 +77,7 @@ def _request(session_id: str) -> dict:
             "read_only": True,
         },
         "task": "review the plan",
-        "constraints": ["Return machine-readable JSON only."],
+        "constraints": [],
         "context": {"diff": "", "files": [], "docs": []},
         "max_tokens": 512,
         "timeout_sec": 30,

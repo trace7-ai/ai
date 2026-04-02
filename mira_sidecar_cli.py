@@ -28,6 +28,7 @@ def _parse_args(args: list[str]):
     parser = _SidecarArgumentParser(add_help=False, prog="mira ask")
     parser.add_argument("--input-file")
     parser.add_argument("--format", default="json")
+    parser.add_argument("--content-format", choices=("auto", "structured", "markdown", "text"), default="auto")
     parser.add_argument("--role", choices=sorted(ROLE_REGISTRY))
     parser.add_argument("--task")
     parser.add_argument("--session")
@@ -55,10 +56,12 @@ def _parse_args(args: list[str]):
 
 def _load_request_file_mode(parsed) -> dict:
     _reject_file_mode_overrides(parsed)
-    request = load_request_file(parsed.input_file)
+    request = load_request_file(parsed.input_file, normalize_body=False)
     if parsed.role:
         request["role"] = parsed.role
-    return request
+    if parsed.content_format != "auto":
+        request["content_format"] = parsed.content_format
+    return normalize_request(request)
 
 
 def _reject_file_mode_overrides(parsed):
@@ -80,6 +83,7 @@ def _build_prompt_mode_request(parsed) -> dict:
         "version": "v1",
         "role": parsed.role or "planner",
         "request_id": parsed.request_id,
+        "content_format": parsed.content_format,
         "session": {
             "mode": "sticky" if parsed.session else "ephemeral",
             "session_id": parsed.session,
@@ -96,7 +100,7 @@ def _build_prompt_mode_request(parsed) -> dict:
             "read_only": True,
         },
         "task": parsed.inline_task,
-        "constraints": ["Return machine-readable JSON only."],
+        "constraints": [],
         "context": _load_context_payload(parsed.context_file),
         "max_tokens": parsed.max_tokens,
         "timeout_sec": parsed.timeout_sec,

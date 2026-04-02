@@ -9,7 +9,11 @@
     },
     "role": {
       "type": "string",
-      "enum": ["planner", "reviewer"]
+      "enum": ["planner", "reader", "reviewer"]
+    },
+    "content_format": {
+      "type": "string",
+      "enum": ["auto", "structured", "markdown", "text"]
     },
     "request_id": {
       "type": "string"

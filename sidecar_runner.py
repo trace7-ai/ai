@@ -6,9 +6,8 @@ from sidecar_contract import (
     build_error_response,
     build_prompt,
     build_success_response,
-    extract_json_object,
     normalize_request,
-    validate_result,
+    parse_model_result,
 )
 
 MAX_REQUEST_BYTES = 256 * 1024
@@ -29,12 +28,12 @@ SESSION_ERROR_HINTS = (
 )
 
 
-def load_request_file(path: str) -> dict:
+def load_request_file(path: str, *, normalize_body: bool = True) -> dict:
     request_path = Path(path)
     if request_path.stat().st_size > MAX_REQUEST_BYTES:
         raise ValueError(f"request file too large: {request_path}")
     raw = json.loads(request_path.read_text(encoding="utf-8"))
-    return normalize_request(raw)
+    return normalize_request(raw) if normalize_body else raw
 
 
 def collect_stream_text(stream, timeout_sec: int) -> str:
@@ -86,12 +85,13 @@ def execute_request(client, request: dict) -> tuple[dict, int]:
     try:
         prompt = build_prompt(request)
         text = collect_stream_text(client.stream_chat(prompt), request["timeout_sec"])
-        result = validate_result(request["role"], extract_json_object(text))
+        result = parse_model_result(request["role"], text, request["content_format"])
         return build_success_response(
             request["role"],
             request.get("request_id"),
             model_name,
             result,
+            request["content_format"],
         ), EXIT_OK
     except TimeoutError as exc:
         response = build_error_response(
