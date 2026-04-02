@@ -1,0 +1,88 @@
+{
+  "version": "v1",
+  "type": "object",
+  "required": ["version", "status", "role", "model", "errors", "token_usage"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "error"]
+    },
+    "role": {
+      "type": ["string", "null"]
+    },
+    "request_id": {
+      "type": ["string", "null"]
+    },
+    "session": {
+      "type": ["object", "null"],
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "turn_index": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "reconnected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "files_read": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "model": {
+      "type": ["string", "null"]
+    },
+    "result": {
+      "type": ["object", "null"]
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "token_usage": {
+      "type": "object",
+      "required": ["input", "output"],
+      "properties": {
+        "input": {
+          "type": ["integer", "null"]
+        },
+        "output": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

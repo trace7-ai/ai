@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+config.json
+history
+last_conversation
+conversations/
+sessions/
+
+.DS_Store

@@ -1,0 +1,163 @@
+{
+  "version": "v1",
+  "type": "object",
+  "required": ["role", "task", "context"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "role": {
+      "type": "string",
+      "enum": ["planner", "reviewer"]
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["sticky", "branch", "ephemeral"]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "parent_session_id": {
+          "type": "string"
+        },
+        "context_hint": {
+          "type": "object",
+          "properties": {
+            "workspace_root": {
+              "type": "string"
+            },
+            "task_description": {
+              "type": "string"
+            },
+            "git_branch": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "file_manifest": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["none", "explicit"]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_total_bytes": {
+          "type": "integer"
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "task": {
+      "type": "string"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "diff": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "content"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["content"],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "max_tokens": {
+      "type": "integer",
+      "minimum": 256,
+      "maximum": 16000
+    },
+    "timeout_sec": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 600
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "file_manifest": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "const": "explicit"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "session": {
+            "type": "object",
+            "required": ["context_hint"],
+            "properties": {
+              "context_hint": {
+                "type": "object",
+                "required": ["workspace_root"],
+                "properties": {
+                  "workspace_root": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
