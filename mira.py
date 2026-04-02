@@ -7,9 +7,14 @@ VERSION = "1.0"
 ASK_HELP = """Mira AI-First CLI
 
 Usage
-  mira ask --task "..." [--role planner|reader|reviewer] [--content-format structured|markdown|text] [--session ID] [--context-file PATH] [--file PATH] [--format json]
-  mira ask --input-file request.json --format json
   mira "task text"
+  mira ask --task "..." [advanced overrides]
+  mira ask --input-file request.json --format json
+
+Auto Routing
+  No --role needed for normal use.
+  The CLI infers reader / planner / reviewer from the task and context.
+  Use --role or --content-format only when you want to override the default route.
 
 Compatibility
   mira login

@@ -146,6 +146,35 @@ class SidecarContentFormatTests(unittest.TestCase):
         request = load_request_from_cli(["--role", "reader", "--task", "read this doc"])
         self.assertEqual(request["content_format"], "markdown")
 
+    def test_cli_infers_reader_from_url(self):
+        request = load_request_from_cli(
+            ["Read https://example.com/article and return the content"],
+        )
+        self.assertEqual(request["role"], "reader")
+        self.assertEqual(request["content_format"], "markdown")
+
+    def test_cli_infers_planner_from_plan_keyword(self):
+        request = load_request_from_cli(["Plan the implementation steps for this change"])
+        self.assertEqual(request["role"], "planner")
+        self.assertEqual(request["content_format"], "structured")
+
+    def test_cli_infers_reviewer_from_diff_context(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
+            json.dump({"context": {"diff": "diff --git a/app.py b/app.py", "files": [], "docs": []}}, handle)
+            handle.flush()
+            request = load_request_from_cli(
+                ["--context-file", handle.name, "--task", "please check this patch"],
+            )
+        self.assertEqual(request["role"], "reviewer")
+        self.assertEqual(request["content_format"], "structured")
+
+    def test_cli_explicit_role_overrides_router(self):
+        request = load_request_from_cli(
+            ["--role", "reader", "--task", "Plan the implementation steps for this change"],
+        )
+        self.assertEqual(request["role"], "reader")
+        self.assertEqual(request["content_format"], "markdown")
+
     def test_cli_accepts_explicit_content_format(self):
         request = load_request_from_cli(
             ["--role", "reader", "--content-format", "text", "--task", "read this doc"],

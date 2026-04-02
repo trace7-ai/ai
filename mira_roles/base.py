@@ -11,6 +11,12 @@ class BaseRole(ABC):
     default_content_format = "structured"
     supported_content_formats = frozenset({"structured"})
 
+    def context_guidance(self) -> str:
+        return "Use the prepared context as the primary source of truth."
+
+    def output_style_guidance(self, content_format: str) -> str:
+        return ""
+
     def resolve_content_format(self, requested: str) -> str:
         content_format = requested or self.default_content_format
         if content_format == "auto":
@@ -44,12 +50,15 @@ class BaseRole(ABC):
         constraint_lines = "\n".join(f"- {item}" for item in constraints)
         session_id = request["session"]["session_id"] or "none"
         constraints_block = f"Constraints:\n{constraint_lines}\n\n" if constraint_lines else ""
+        style_guidance = self.output_style_guidance(request["content_format"])
+        style_block = f"{style_guidance}\n" if style_guidance else ""
         return (
             f"You are Mira acting as a {self.name} sidecar subagent.\n"
-            "The caller already prepared the relevant context.\n"
+            f"{self.context_guidance()}\n"
             f"Goal: {self.summary}\n"
             f"Task:\n{request['task']}\n\n"
             f"{constraints_block}"
+            f"{style_block}"
             f"{self._output_instructions(request['content_format'])}\n"
             f"Keep the answer within approximately {request['max_tokens']} tokens.\n"
             f"Assume the caller will terminate the request after {request['timeout_sec']} seconds.\n"

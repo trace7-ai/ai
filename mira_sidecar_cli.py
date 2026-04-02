@@ -7,6 +7,71 @@ from mira_roles import ROLE_REGISTRY
 from sidecar_contract import DEFAULT_MAX_TOKENS, DEFAULT_TIMEOUT_SEC, normalize_request
 from sidecar_runner import load_request_file
 
+DOC_EXTENSIONS = {".md", ".mdx", ".txt", ".rst", ".pdf", ".doc", ".docx"}
+CODE_EXTENSIONS = {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".go",
+    ".java",
+    ".js",
+    ".jsx",
+    ".kt",
+    ".mjs",
+    ".php",
+    ".py",
+    ".rb",
+    ".rs",
+    ".scala",
+    ".sh",
+    ".sql",
+    ".swift",
+    ".ts",
+    ".tsx",
+}
+REVIEW_KEYWORDS = (
+    "review",
+    "reviewer",
+    "double check",
+    "regression",
+    "bug",
+    "审查",
+    "检查",
+    "找 bug",
+    "找bug",
+    "回归",
+)
+PLAN_KEYWORDS = (
+    "plan",
+    "planning",
+    "roadmap",
+    "steps",
+    "方案",
+    "规划",
+    "计划",
+    "拆解",
+    "步骤",
+)
+READ_KEYWORDS = (
+    "read",
+    "summarize",
+    "summary",
+    "extract",
+    "explain",
+    "translate",
+    "读取",
+    "阅读",
+    "总结",
+    "摘要",
+    "提炼",
+    "整理",
+    "翻译",
+    "解释",
+    "返回内容",
+    "正文",
+)
+
 
 class SidecarCLIError(ValueError):
     pass
@@ -79,9 +144,11 @@ def _reject_file_mode_overrides(parsed):
 
 def _build_prompt_mode_request(parsed) -> dict:
     workspace_root = _resolve_workspace_root(parsed.workspace_root)
+    context = _load_context_payload(parsed.context_file)
+    role_name = parsed.role or _infer_role(parsed, context)
     request = {
         "version": "v1",
-        "role": parsed.role or "planner",
+        "role": role_name,
         "request_id": parsed.request_id,
         "content_format": parsed.content_format,
         "session": {
@@ -101,7 +168,7 @@ def _build_prompt_mode_request(parsed) -> dict:
         },
         "task": parsed.inline_task,
         "constraints": [],
-        "context": _load_context_payload(parsed.context_file),
+        "context": context,
         "max_tokens": parsed.max_tokens,
         "timeout_sec": parsed.timeout_sec,
     }
@@ -144,3 +211,39 @@ def _normalize_context_payload(data, path: Path) -> dict:
         "files": data.get("files", []),
         "docs": data.get("docs", []),
     }
+
+
+def _has_any_keyword(text: str, keywords) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
+def _has_url(text: str) -> bool:
+    return "http://" in text or "https://" in text
+
+
+def _has_doc_files(paths: list[str]) -> bool:
+    return any(Path(path).suffix.lower() in DOC_EXTENSIONS for path in paths)
+
+
+def _has_code_files(paths: list[str]) -> bool:
+    return any(Path(path).suffix.lower() in CODE_EXTENSIONS for path in paths)
+
+
+def _context_paths(context: dict) -> list[str]:
+    return [item["path"] for item in context.get("files", []) if isinstance(item, dict) and "path" in item]
+
+
+def _infer_role(parsed, context: dict) -> str:
+    task_text = parsed.inline_task.lower()
+    context_paths = [*parsed.files, *_context_paths(context)]
+    if context.get("diff", "").strip():
+        return "reviewer"
+    if _has_any_keyword(task_text, REVIEW_KEYWORDS) and _has_code_files(context_paths):
+        return "reviewer"
+    if _has_any_keyword(task_text, PLAN_KEYWORDS):
+        return "planner"
+    if context.get("docs") or _has_doc_files(context_paths):
+        return "reader"
+    if _has_url(parsed.inline_task) or _has_any_keyword(task_text, READ_KEYWORDS):
+        return "reader"
+    return "planner"
