@@ -3866,7 +3866,8 @@ def main():
     mira                 交互模式
     mira "问题"          单次提问
     mira login           飞书登录
-    mira ask             Sidecar 批处理模式
+    mira ask --task "..."            Sidecar CLI
+    mira ask --input-file req.json   Sidecar JSON 模式
     mira model [name]    切换模型
     mira mcp             MCP Bridge 管理（安装/启动/停止）
     mira update          检查并更新到最新版

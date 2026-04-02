@@ -1,8 +1,7 @@
 from mira_file_access import FileAccessor
-from mira_roles import ROLE_REGISTRY, get_role
+from mira_roles import get_role
 from mira_session import SessionStore
-from sidecar_contract import build_error_response
-from sidecar_runner import EXIT_INVALID_REQUEST, execute_request, load_request_file, print_response
+from sidecar_runner import execute_request
 
 SESSION_ERROR_HINTS = (
     "invalid session",
@@ -16,47 +15,11 @@ SESSION_ERROR_HINTS = (
 )
 
 
-class SidecarEntrypoint:
-    def __init__(self, args, config_factory, client_factory, session_store=None):
-        self.args = args
+class SidecarService:
+    def __init__(self, config_factory, client_factory, session_store=None):
         self.config_factory = config_factory
         self.client_factory = client_factory
         self.session_store = session_store or SessionStore()
-
-    def _parse_args(self):
-        request_path = ""
-        output_format = "json"
-        role_override = None
-        index = 0
-        while index < len(self.args):
-            current = self.args[index]
-            if current == "--input-file" and index + 1 < len(self.args):
-                request_path = self.args[index + 1]
-                index += 2
-                continue
-            if current == "--format" and index + 1 < len(self.args):
-                output_format = self.args[index + 1]
-                index += 2
-                continue
-            if current == "--role" and index + 1 < len(self.args):
-                role_override = self.args[index + 1]
-                index += 2
-                continue
-            raise ValueError(f"unknown ask argument: {current}")
-        if not request_path:
-            raise ValueError("missing --input-file <path>")
-        if output_format != "json":
-            raise ValueError("only --format json is supported in v1")
-        return request_path, role_override
-
-    def _load_request(self):
-        request_path, role_override = self._parse_args()
-        request = load_request_file(request_path)
-        if role_override:
-            if role_override not in ROLE_REGISTRY:
-                raise ValueError(f"unsupported role override: {role_override}")
-            request["role"] = role_override
-        return request
 
     def _prepare_client(self, config, request: dict):
         client = self.client_factory(config)
@@ -134,19 +97,13 @@ class SidecarEntrypoint:
             "reconnected": reconnected,
         }
 
-    def run(self) -> int:
-        try:
-            request = self._load_request()
-            config = self.config_factory()
-            if not config.has_auth:
-                raise ValueError("missing login cookie, run mira login first")
-            client, stored = self._prepare_client(config, request)
-            files_read = self._attach_files(request)
-            response, exit_code, reconnected = self._run_request(client, request, stored)
-            response["files_read"] = files_read
-            self._attach_session(response, request, client, stored, reconnected=reconnected)
-        except Exception as exc:
-            response = build_error_response("invalid_request", str(exc))
-            exit_code = EXIT_INVALID_REQUEST
-        print_response(response)
-        return exit_code
+    def run(self, request: dict) -> tuple[dict, int]:
+        config = self.config_factory()
+        if not config.has_auth:
+            raise ValueError("missing login cookie, run mira login first")
+        client, stored = self._prepare_client(config, request)
+        files_read = self._attach_files(request)
+        response, exit_code, reconnected = self._run_request(client, request, stored)
+        response["files_read"] = files_read
+        self._attach_session(response, request, client, stored, reconnected=reconnected)
+        return response, exit_code
