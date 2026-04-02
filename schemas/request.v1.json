@@ -23,7 +23,7 @@
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["sticky", "branch", "ephemeral"]
+          "enum": ["sticky", "ephemeral"]
         },
         "session_id": {
           "type": "string"

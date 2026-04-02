@@ -1,6 +1,7 @@
-__pycache__/
-*.pyc
-
+/mira
+/bin/
+*.test
+cover.out
 config.json
 history
 last_conversation

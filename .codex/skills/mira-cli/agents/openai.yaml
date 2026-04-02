@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mira CLI"
+  short_description: "Delegate planning, reading, and review to local Mira CLI."
+  default_prompt: "Use $mira-cli to answer this task through the local Mira sidecar CLI in the current repository."
+
+policy:
+  allow_implicit_invocation: true
