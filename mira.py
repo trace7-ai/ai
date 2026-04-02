@@ -1337,9 +1337,10 @@ class ConversationStore:
             "messages": messages,
         }
         path = CONV_DIR / f"{conv_id}.json"
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+        with path.open("w", encoding="utf-8", errors="backslashreplace") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=1)
         path.chmod(0o600)
-        LAST_CONV_FILE.write_text(conv_id)
+        LAST_CONV_FILE.write_text(conv_id, encoding="utf-8")
         LAST_CONV_FILE.chmod(0o600)
 
     @staticmethod

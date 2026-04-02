@@ -2,7 +2,7 @@ from mira_file_access import FileAccessor
 from mira_roles import ROLE_REGISTRY, get_role
 from mira_session import SessionStore
 from sidecar_contract import build_error_response
-from sidecar_runner import execute_request, load_request_file, print_response
+from sidecar_runner import EXIT_INVALID_REQUEST, execute_request, load_request_file, print_response
 
 SESSION_ERROR_HINTS = (
     "invalid session",
@@ -147,6 +147,6 @@ class SidecarEntrypoint:
             self._attach_session(response, request, client, stored, reconnected=reconnected)
         except Exception as exc:
             response = build_error_response("invalid_request", str(exc))
-            exit_code = 2
+            exit_code = EXIT_INVALID_REQUEST
         print_response(response)
         return exit_code

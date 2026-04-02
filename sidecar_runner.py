@@ -13,6 +13,10 @@ from sidecar_contract import (
 
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_RESPONSE_CHARS = 200000
+EXIT_OK = 0
+EXIT_EXECUTION_FAILED = 1
+EXIT_INVALID_REQUEST = 2
+EXIT_TIMEOUT = 3
 
 
 def load_request_file(path: str) -> dict:
@@ -67,7 +71,16 @@ def execute_request(client, request: dict) -> tuple[dict, int]:
             request.get("request_id"),
             model_name,
             result,
-        ), 0
+        ), EXIT_OK
+    except TimeoutError as exc:
+        response = build_error_response(
+            "timeout",
+            str(exc),
+            role=request.get("role"),
+            request_id=request.get("request_id"),
+            model=model_name,
+        )
+        return response, EXIT_TIMEOUT
     except Exception as exc:
         response = build_error_response(
             "execution_failed",
@@ -76,7 +89,7 @@ def execute_request(client, request: dict) -> tuple[dict, int]:
             request_id=request.get("request_id"),
             model=model_name,
         )
-        return response, 1
+        return response, EXIT_EXECUTION_FAILED
 
 
 def print_response(response: dict):
