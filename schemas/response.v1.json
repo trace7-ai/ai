@@ -29,8 +29,14 @@
         "status": {
           "type": "string"
         },
-        "reconnected": {
-          "type": "boolean"
+        "reason": {
+          "type": ["string", "null"]
+        },
+        "ttl_seconds": {
+          "type": ["integer", "null"]
+        },
+        "expires_at": {
+          "type": ["string", "null"]
         }
       }
     },

@@ -18,6 +18,7 @@ Compatibility
 """
 
 LEGACY_COMMANDS = {"login", "status", "model"}
+UNSUPPORTED_COMMANDS = {"update", "history", "mcp"}
 
 
 def _run_ask(args: list[str]) -> int:
@@ -52,7 +53,7 @@ def main() -> int:
         return _run_ask(args[1:])
     if cmd in LEGACY_COMMANDS:
         return _run_legacy()
-    if cmd in {"update", "history", "mcp"}:
+    if cmd in UNSUPPORTED_COMMANDS:
         print(f"unsupported in ai-first shell: {cmd}", file=sys.stderr)
         return 2
     if cmd.startswith("-"):

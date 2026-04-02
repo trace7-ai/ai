@@ -81,17 +81,16 @@ class Config:
 
     def _load(self):
         if CONFIG_FILE.exists():
-            try:
-                data = json.loads(CONFIG_FILE.read_text())
-                self.cookies = data.get("cookies", "")
-                if not self.cookies and data.get("session"):
-                    self.cookies = f"session={data['session']}"
-                self.username = data.get("username", "")
-                self.device_id = data.get("device_id", "")
-            except Exception:
-                pass
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError(f"config file must contain a JSON object: {CONFIG_FILE}")
+            self.cookies = data.get("cookies", "")
+            if not self.cookies and data.get("session"):
+                self.cookies = f"session={data['session']}"
+            self.username = data.get("username", "")
+            self.device_id = data.get("device_id", "")
         if MODEL_FILE.exists():
-            key = MODEL_FILE.read_text().strip()
+            key = MODEL_FILE.read_text(encoding="utf-8").strip()
             if key in MODELS:
                 self.model_key = key
 

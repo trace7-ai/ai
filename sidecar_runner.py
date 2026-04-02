@@ -17,13 +17,23 @@ EXIT_OK = 0
 EXIT_EXECUTION_FAILED = 1
 EXIT_INVALID_REQUEST = 2
 EXIT_TIMEOUT = 3
+SESSION_ERROR_HINTS = (
+    "invalid session",
+    "session expired",
+    "session not found",
+    "conversation not found",
+    "invalid conversation",
+    "会话失效",
+    "会话不存在",
+    "会话已过期",
+)
 
 
 def load_request_file(path: str) -> dict:
     request_path = Path(path)
     if request_path.stat().st_size > MAX_REQUEST_BYTES:
         raise ValueError(f"request file too large: {request_path}")
-    raw = json.loads(request_path.read_text())
+    raw = json.loads(request_path.read_text(encoding="utf-8"))
     return normalize_request(raw)
 
 
@@ -60,6 +70,17 @@ def collect_stream_text(stream, timeout_sec: int) -> str:
     return "".join(chunks).strip()
 
 
+def is_session_error_message(message: str) -> bool:
+    lowered = message.lower()
+    return any(hint in lowered for hint in SESSION_ERROR_HINTS)
+
+
+def _execution_error_details(exc: Exception) -> tuple[str, int]:
+    if is_session_error_message(str(exc)):
+        return "invalid_session", EXIT_INVALID_REQUEST
+    return "execution_failed", EXIT_EXECUTION_FAILED
+
+
 def execute_request(client, request: dict) -> tuple[dict, int]:
     model_name = getattr(client.config, "model_name", None)
     try:
@@ -82,14 +103,15 @@ def execute_request(client, request: dict) -> tuple[dict, int]:
         )
         return response, EXIT_TIMEOUT
     except Exception as exc:
+        error_code, exit_code = _execution_error_details(exc)
         response = build_error_response(
-            "execution_failed",
+            error_code,
             str(exc),
             role=request.get("role"),
             request_id=request.get("request_id"),
             model=model_name,
         )
-        return response, EXIT_EXECUTION_FAILED
+        return response, exit_code
 
 
 def print_response(response: dict):
