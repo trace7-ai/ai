@@ -55,7 +55,18 @@ func normalizeContextFiles(raw any) ([]ContextFile, error) {
 		if err != nil {
 			return nil, err
 		}
-		files = append(files, ContextFile{Path: path, Content: content})
+		file := ContextFile{Path: path, Content: content}
+		if source, err := optionalString(body["source"], fmt.Sprintf("context.files[%d].source", index)); err != nil {
+			return nil, err
+		} else {
+			file.Source = source
+		}
+		if title, err := optionalString(body["title"], fmt.Sprintf("context.files[%d].title", index)); err != nil {
+			return nil, err
+		} else {
+			file.Title = title
+		}
+		files = append(files, file)
 	}
 	return files, nil
 }

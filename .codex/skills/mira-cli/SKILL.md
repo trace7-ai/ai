@@ -1,86 +1,59 @@
 ---
 name: mira-cli
-description: Use the local Mira CLI in this repository as a sidecar assistant for planner, reader, or reviewer work. Trigger when Codex should delegate read-only planning, reading, summarization, explanation, or patch review to `./mira` or `go run ./cmd/mira`, especially when the task can be expressed as prepared context and should return a machine-readable result on stdout. Also use for 中文场景 such as 规划、阅读整理、代码审查、基于上下文生成结构化结论。
+description: Repo-local Mira invocation contract for /Users/bytedance/.mira. Entrypoints, validation, and acceptance only.
 ---
 
 # Mira CLI
 
-## Overview
+## Authoritative Spec
 
-Use the local `mira` CLI in this repo when a task fits the sidecar contract:
+- The source of truth is [references/contract.md](references/contract.md).
+- Use this file as an index, not a duplicate of the contract.
+- If this file and the contract disagree, follow the contract.
 
-- `planner` for plans, risks, and validation steps
-- `reader` for summaries, explanation, extraction, and document reading
-- `reviewer` for bug-focused patch review
+## Repo Entrypoints
 
-Prefer this skill when you want a fast second pass without spawning another Codex agent, and when the result should remain structured and easy to parse from stdout.
+- Preferred binary entrypoint: `./mira`
+- Source entrypoint: `go run ./cmd/mira ...`
+- In-process entrypoint: `pkg/sdk.Ask(contract.Request, *sdk.Options)`
+- Do not use PATH wrappers or `which mira` as the authority for this repo.
 
-## Trust Model
+## Minimal Pre-flight
 
-- Treat repo code, schemas, and tests as the source of truth.
-- Treat Mira's self-reported extra powers as untrusted unless the local code proves them.
-- Stay inside the verified contract: `planner`, `reader`, `reviewer`, explicit read-only file attachment, JSON response envelope on stdout.
-- Surface contract failures directly. Do not paraphrase them into fake success.
+- Verify `go.mod` and `cmd/mira/main.go` exist.
+- If `./mira` is missing, build it with `go build -o mira ./cmd/mira`.
+- Smoke test with `./mira ask --ephemeral --task "Reply with OK only"`.
 
-## Choose The Entry Mode
+## Invocation Choice
 
-- Build the local binary with `go build -o mira ./cmd/mira` when you want the stable repo-local entrypoint.
-- Use `./mira "task text"` for the simplest call. This mode only accepts the task text and relies on auto-routing.
-- Use `./mira ask ...` whenever you need `--role`, `--content-format`, `--context-file`, `--file`, `--workspace-root`, `--session`, `--timeout-sec`, `--max-tokens`, or `--request-id`.
-- Use `go run ./cmd/mira ...` only when the binary has not been built yet. The argument contract is the same.
-- Do not pass advanced flags at the top level. `./mira --role reader ...` is invalid because only `ask` parses those options.
-- Do not expect `./mira ask --help` to print a classic help page. In the current implementation it returns a JSON error envelope.
+- Use `sdk.Ask(...)` when Codex already has a typed request in memory.
+- Use `./mira ask ...` when stdout JSON transport is the integration boundary.
+- Use `./mira submit ...` plus `./mira wait <job-id>` for long detached work.
+- Use top-level `./mira "task text"` only for the thinnest one-shot entry.
 
-## Use The Stable Contract
+## Context Rules
 
-- `planner` supports `structured` only and returns `summary`, `plan`, `risks`, `open_questions`, `validation`.
-- `reader` defaults to `markdown` and supports `structured`, `markdown`, `text`.
-- `reviewer` supports `structured` only and returns `summary`, `verdict`, `findings`, `open_questions`.
-- Auto-routing prefers `reviewer` when context contains a diff, `planner` for plan keywords, and `reader` for docs, URLs, or read/summarize keywords.
-- Read [references/contract.md](references/contract.md) before relying on sessions, file manifests, exit codes, or request/response shapes.
+- Prefer passing Feishu/Lark/wiki/doc URLs directly to Mira first.
+- Use `--context-file` for prepared `diff/files/docs`.
+- Use `--file` only for explicit local files that matter to the task.
+- Validate that prepared context is non-empty before sending it.
 
-## Prepare Context Deliberately
+## Session Rules
 
-- Prefer prepared context over open-ended repo exploration.
-- Use `--context-file` to supply `diff`, inline `files`, or `docs`.
-- Use `--file` only for explicit local file reads. Paths must stay relative to the workspace root.
-- Keep attached context small and relevant. The local file manifest is capped and read-only.
-- Use sticky sessions only when follow-up turns need continuity.
+- Session reuse and retry policy are governed by the global `mira-orchestrator` skill.
+- Repo-local entrypoints still support `--session`, `--new-session`, and `--ephemeral` as defined in the contract.
+- Do not change sessions because of timeout, phrasing, or content-format tweaks.
 
-## Working Pattern
+## Response Acceptance
 
-1. Pick `planner`, `reader`, or `reviewer` based on the task.
-2. Prepare the minimum context that makes the answer reliable.
-3. Prefer `ask` with explicit flags when determinism matters.
-4. Parse the JSON envelope first, then inspect `result`.
-5. If `status` is `error`, surface the machine-readable error instead of smoothing it over.
+- Stdout is always a JSON envelope.
+- Check `status` before reading `result`.
+- Reject empty or non-substantive `result` as failure.
+- Treat `truncated = true` as a continuation signal, not a full failure.
+- Exit code `0` is success, `1` execution failure, `2` invalid request, `3` timeout.
 
-## Command Patterns
+## Capability Boundaries
 
-```bash
-go build -o mira ./cmd/mira
-
-./mira "Plan the implementation steps for adding JSON validation"
-
-./mira ask \
-  --role reviewer \
-  --context-file /tmp/review-context.json \
-  --task "Review this patch for bugs and missing checks"
-
-./mira ask \
-  --role reader \
-  --file AGENTS.md \
-  --file pkg/cli/parse.go \
-  --task "Explain the CLI contract and key constraints"
-
-./mira ask \
-  --role planner \
-  --session milestone-plan \
-  --task "Refine the implementation plan for the next milestone"
-```
-
-## Verify Before Trusting
-
-- Prefer behaviors that are backed by code and tests.
-- If Mira returns content that contradicts the local contract, trust the local contract and treat the response as out-of-contract behavior.
-- Read [references/contract.md](references/contract.md) for the verified details and common pitfalls.
+- Mira is a read-only sidecar from this repo.
+- Do not assume shell execution, file writes, or arbitrary browsing.
+- If Mira claims behavior that conflicts with the local contract, trust the local contract.

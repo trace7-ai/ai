@@ -21,6 +21,14 @@ func ParseAskArgs(args []string) (ParsedArgs, error) {
 			parsed.TaskParts = append(parsed.TaskParts, arg)
 			continue
 		}
+		if arg == "--ephemeral" {
+			parsed.Ephemeral = true
+			continue
+		}
+		if arg == "--new-session" {
+			parsed.NewSession = true
+			continue
+		}
 		value, next, err := parseFlagValue(args, index, arg)
 		if err != nil {
 			return ParsedArgs{}, err
@@ -42,6 +50,15 @@ func ParseAskArgs(args []string) (ParsedArgs, error) {
 	}
 	if parsed.InputFile != "" && parsed.InlineTask != "" {
 		return ParsedArgs{}, fmt.Errorf("cannot combine --input-file with inline task")
+	}
+	if parsed.NewSession && parsed.Session != "" {
+		return ParsedArgs{}, fmt.Errorf("cannot combine --session with --new-session")
+	}
+	if parsed.Ephemeral && parsed.Session != "" {
+		return ParsedArgs{}, fmt.Errorf("cannot combine --session with --ephemeral")
+	}
+	if parsed.Ephemeral && parsed.NewSession {
+		return ParsedArgs{}, fmt.Errorf("cannot combine --new-session with --ephemeral")
 	}
 	if parsed.InputFile == "" && parsed.InlineTask == "" {
 		return ParsedArgs{}, fmt.Errorf("missing task or --input-file")

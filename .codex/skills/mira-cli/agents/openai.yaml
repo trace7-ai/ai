@@ -1,7 +1,7 @@
 interface:
   display_name: "Mira CLI"
-  short_description: "Delegate planning, reading, and review to local Mira CLI."
-  default_prompt: "Use $mira-cli to answer this task through the local Mira sidecar CLI in the current repository."
+  short_description: "Use the local Mira sidecar CLI as a single-entry assistant with sticky sessions, async jobs, and context replay."
+  default_prompt: "Use $mira-cli as the project-level HOW-to guide for invoking Mira in this repo. Start from the `.mira` repo root, read the skill, and then use the repo-local entrypoint. Prefer `./mira`; if it is missing, build it with `go build -o mira ./cmd/mira`; use `go run ./cmd/mira` only as the source entrypoint fallback. Do not trust stale PATH wrappers for this repo. Validate `--context-file` before ask, and reject empty-shell responses as failed calls. Reuse one task-scoped sticky session whenever follow-up is likely."
 
 policy:
   allow_implicit_invocation: true

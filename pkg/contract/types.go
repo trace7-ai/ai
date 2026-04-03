@@ -39,18 +39,24 @@ type Context struct {
 	Docs  []ContextDoc  `json:"docs"`
 }
 
+type PromptOverrides struct {
+	Protocol           *string `json:"protocol,omitempty"`
+	OutputInstructions *string `json:"output_instructions,omitempty"`
+}
+
 type Request struct {
-	Version       string       `json:"version"`
-	Role          string       `json:"role"`
-	RequestID     *string      `json:"request_id"`
-	ContentFormat string       `json:"content_format"`
-	Session       Session      `json:"session"`
-	FileManifest  FileManifest `json:"file_manifest"`
-	Task          string       `json:"task"`
-	Constraints   []string     `json:"constraints"`
-	Context       Context      `json:"context"`
-	MaxTokens     int          `json:"max_tokens"`
-	TimeoutSec    int          `json:"timeout_sec"`
+	Version         string           `json:"version"`
+	Role            string           `json:"role"`
+	RequestID       *string          `json:"request_id"`
+	ContentFormat   string           `json:"content_format"`
+	Session         Session          `json:"session"`
+	FileManifest    FileManifest     `json:"file_manifest"`
+	Task            string           `json:"task"`
+	Constraints     []string         `json:"constraints"`
+	Context         Context          `json:"context"`
+	PromptOverrides *PromptOverrides `json:"prompt_overrides,omitempty"`
+	MaxTokens       int              `json:"max_tokens"`
+	TimeoutSec      int              `json:"timeout_sec"`
 }
 
 type ErrorItem struct {
@@ -64,12 +70,17 @@ type TokenUsage struct {
 }
 
 type SessionPayload struct {
-	SessionID  string  `json:"session_id"`
-	TurnIndex  int     `json:"turn_index"`
-	Status     string  `json:"status"`
-	Reason     *string `json:"reason"`
-	TTLSeconds *int    `json:"ttl_seconds"`
-	ExpiresAt  *string `json:"expires_at"`
+	SessionID string  `json:"session_id"`
+	TurnIndex int     `json:"turn_index"`
+	Status    string  `json:"status"`
+	Reused    bool    `json:"reused"`
+	Reason    *string `json:"reason"`
+}
+
+type PromptMeta struct {
+	ContextTotalItems int `json:"context_total_items"`
+	ContextIncluded   int `json:"context_included"`
+	ContextOmitted    int `json:"context_omitted"`
 }
 
 type Response struct {
@@ -84,5 +95,6 @@ type Response struct {
 	TokenUsage  TokenUsage       `json:"token_usage"`
 	Truncated   bool             `json:"truncated"`
 	FilesRead   []map[string]any `json:"files_read"`
+	PromptMeta  *PromptMeta      `json:"prompt_meta,omitempty"`
 	Session     *SessionPayload  `json:"session"`
 }

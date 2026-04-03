@@ -18,13 +18,13 @@ func NormalizeRequest(raw map[string]any) (Request, error) {
 	if version != SchemaVersion {
 		return Request{}, fmt.Errorf("unsupported version: %s", version)
 	}
-	roleName, err := requireString(raw["role"], "role")
+	roleName, err := optionalString(raw["role"], "role")
 	if err != nil {
 		return Request{}, err
 	}
-	role, ok := roles.Get(roleName)
-	if !ok {
-		return Request{}, fmt.Errorf("unsupported role: %s", roleName)
+	roleNameValue, err := roles.Normalize(derefString(roleName))
+	if err != nil {
+		return Request{}, err
 	}
 	task, err := requireString(raw["task"], "task")
 	if err != nil {
@@ -34,7 +34,7 @@ func NormalizeRequest(raw map[string]any) (Request, error) {
 	if err != nil {
 		return Request{}, err
 	}
-	contentFormat, err := normalizeContentFormat(raw["content_format"], role)
+	contentFormat, err := normalizeContentFormat(raw["content_format"])
 	if err != nil {
 		return Request{}, err
 	}
@@ -54,11 +54,15 @@ func NormalizeRequest(raw map[string]any) (Request, error) {
 	if err != nil {
 		return Request{}, err
 	}
+	promptOverrides, err := normalizePromptOverrides(raw["prompt_overrides"])
+	if err != nil {
+		return Request{}, err
+	}
 	maxTokens, err := normalizeInt(raw["max_tokens"], DefaultMaxTokens, 256, MaxMaxTokens, "max_tokens")
 	if err != nil {
 		return Request{}, err
 	}
-	timeoutSec, err := normalizeInt(raw["timeout_sec"], DefaultTimeoutSec, 10, MaxTimeoutSec, "timeout_sec")
+	timeoutSec, err := normalizeTimeout(raw["timeout_sec"])
 	if err != nil {
 		return Request{}, err
 	}
@@ -66,29 +70,30 @@ func NormalizeRequest(raw map[string]any) (Request, error) {
 		return Request{}, fmt.Errorf("explicit file_manifest requires session.context_hint.workspace_root")
 	}
 	return Request{
-		Version:       SchemaVersion,
-		Role:          role.Name,
-		RequestID:     requestID,
-		ContentFormat: contentFormat,
-		Session:       session,
-		FileManifest:  manifest,
-		Task:          task,
-		Constraints:   constraints,
-		Context:       context,
-		MaxTokens:     maxTokens,
-		TimeoutSec:    timeoutSec,
+		Version:         SchemaVersion,
+		Role:            roleNameValue,
+		RequestID:       requestID,
+		ContentFormat:   contentFormat,
+		Session:         session,
+		FileManifest:    manifest,
+		Task:            task,
+		Constraints:     constraints,
+		Context:         context,
+		PromptOverrides: promptOverrides,
+		MaxTokens:       maxTokens,
+		TimeoutSec:      timeoutSec,
 	}, nil
 }
 
-func normalizeContentFormat(raw any, role roles.Spec) (string, error) {
+func normalizeContentFormat(raw any) (string, error) {
 	if raw == nil {
-		return role.ResolveContentFormat("auto")
+		return roles.ResolveContentFormat("auto")
 	}
 	value, err := requireString(raw, "content_format")
 	if err != nil {
 		return "", err
 	}
-	return role.ResolveContentFormat(value)
+	return roles.ResolveContentFormat(value)
 }
 
 func normalizeSession(raw any) (Session, error) {
@@ -150,4 +155,30 @@ func normalizeFileManifest(raw any) (FileManifest, error) {
 		return FileManifest{}, err
 	}
 	return FileManifest{Mode: mode, Paths: paths, MaxTotalBytes: maxTotalBytes, ReadOnly: true}, nil
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func normalizePromptOverrides(raw any) (*PromptOverrides, error) {
+	body, err := normalizeOptionalObject(raw, "prompt_overrides")
+	if err != nil {
+		return nil, err
+	}
+	protocol, err := optionalString(body["protocol"], "prompt_overrides.protocol")
+	if err != nil {
+		return nil, err
+	}
+	output, err := optionalString(body["output_instructions"], "prompt_overrides.output_instructions")
+	if err != nil {
+		return nil, err
+	}
+	if protocol == nil && output == nil {
+		return nil, nil
+	}
+	return &PromptOverrides{Protocol: protocol, OutputInstructions: output}, nil
 }

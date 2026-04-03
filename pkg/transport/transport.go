@@ -8,6 +8,7 @@ import (
 
 type Prompt struct {
 	Text string
+	Meta *contract.PromptMeta
 }
 
 type Options struct {
@@ -21,6 +22,7 @@ type Event struct {
 	Type        string
 	Text        string
 	FromContent bool
+	StopReason  string
 	Usage       *contract.TokenUsage
 }
 

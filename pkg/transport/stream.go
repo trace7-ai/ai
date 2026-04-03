@@ -153,25 +153,25 @@ func reasonEvent(data map[string]any) (Event, error) {
 		return Event{Type: "content", Text: text}, nil
 	case "message_delta":
 		usage, _ := inner["usage"].(map[string]any)
-		return Event{Type: "usage", Usage: parseUsage(usage)}, nil
+		return Event{Type: "usage", Usage: parseUsage(usage), StopReason: deltaStopReason(inner)}, nil
 	default:
 		return Event{}, nil
 	}
 }
 
 func contentEvent(data map[string]any) Event {
-	if data == nil {
+	body := resultPayload(data)
+	if body == nil {
 		return Event{}
 	}
-	eventType, _ := data["type"].(string)
-	if eventType != "result" {
-		return Event{}
+	text, _ := body["text"].(string)
+	if text == "" {
+		text, _ = body["result"].(string)
 	}
-	text, _ := data["text"].(string)
 	if text == "" {
 		return Event{}
 	}
-	return Event{Type: "content", Text: text, FromContent: true}
+	return Event{Type: "content", Text: text, FromContent: true, StopReason: fieldStopReason(body)}
 }
 
 func parseUsage(raw map[string]any) *contract.TokenUsage {
@@ -188,6 +188,43 @@ func parseUsage(raw map[string]any) *contract.TokenUsage {
 		usage.Output = &value
 	}
 	return usage
+}
+
+func deltaStopReason(raw map[string]any) string {
+	if raw == nil {
+		return ""
+	}
+	delta, _ := raw["delta"].(map[string]any)
+	if delta == nil {
+		return ""
+	}
+	stopReason, _ := delta["stop_reason"].(string)
+	return stopReason
+}
+
+func fieldStopReason(raw map[string]any) string {
+	if raw == nil {
+		return ""
+	}
+	stopReason, _ := raw["stop_reason"].(string)
+	return stopReason
+}
+
+func resultPayload(data map[string]any) map[string]any {
+	if data == nil {
+		return nil
+	}
+	if eventType, _ := data["type"].(string); eventType == "result" {
+		return data
+	}
+	body, _ := data["content"].(map[string]any)
+	if body == nil {
+		return nil
+	}
+	if eventType, _ := body["type"].(string); eventType != "result" {
+		return nil
+	}
+	return body
 }
 
 func trimLine(line string) string {

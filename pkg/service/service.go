@@ -11,14 +11,19 @@ import (
 )
 
 type Service struct {
-	Client transport.Transport
-	Store  *session.Store
+	Client  transport.Transport
+	Store   *session.Store
+	OnChunk func([]byte)
 }
 
 func (service Service) Run(request contract.Request) (contract.Response, int, error) {
 	modelAware, _ := service.Client.(transport.ModelAware)
 	if modelAware != nil && !modelAware.HasAuth() {
-		return contract.BuildErrorResponse("invalid_request", "missing auth cookie in ~/.mira/config.json", stringPtr(request.Role), request.RequestID, modelAware.ModelName()), runner.ExitInvalidRequest, nil
+		response := contract.BuildErrorResponse("invalid_request", "missing auth cookie in ~/.mira/config.json", stringPtr(request.Role), request.RequestID, modelAware.ModelName())
+		if request.Session.SessionID != nil {
+			response.Session = sessionPayload(*request.Session.SessionID, session.Snapshot{Status: "error"}, false)
+		}
+		return ensureResponseSession(request, response), runner.ExitInvalidRequest, nil
 	}
 	var (
 		filesRead []map[string]any
@@ -42,13 +47,21 @@ func (service Service) Run(request contract.Request) (contract.Response, int, er
 			sessionAware.SetRemoteSessionID(snapshot.Record.RemoteSessionID)
 		}
 	}
+	request, err = attachSessionHistory(request, service.Store)
+	if err != nil {
+		return contract.Response{}, 0, err
+	}
 	request, filesRead, err = hydrateRequest(request)
 	if err != nil {
 		return contract.Response{}, 0, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(request.TimeoutSec)*time.Second)
+	ctx := context.Background()
+	cancel := func() {}
+	if request.TimeoutSec > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(request.TimeoutSec)*time.Second)
+	}
 	defer cancel()
-	response, exitCode := runner.ExecuteRequest(ctx, request, service.Client)
+	response, exitCode := runner.ExecuteRequest(ctx, request, service.Client, service.OnChunk)
 	response.FilesRead = filesRead
 	if modelAware != nil {
 		response.Model = modelAware.ModelName()
@@ -58,6 +71,9 @@ func (service Service) Run(request contract.Request) (contract.Response, int, er
 		if err != nil {
 			return contract.Response{}, 0, err
 		}
+		if err := appendJournal(service.Store, request, response); err != nil {
+			return contract.Response{}, 0, err
+		}
 	}
-	return response, exitCode, nil
+	return ensureResponseSession(request, response), exitCode, nil
 }

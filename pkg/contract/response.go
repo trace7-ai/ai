@@ -13,6 +13,7 @@ func BuildErrorResponse(code, message string, role, requestID, model *string) Re
 		TokenUsage:  TokenUsage{Input: nil, Output: nil},
 		Truncated:   false,
 		FilesRead:   []map[string]any{},
+		PromptMeta:  nil,
 		Session:     nil,
 	}
 }
@@ -30,6 +31,7 @@ func BuildSuccessResponse(role string, requestID, model *string, result any, con
 		TokenUsage:  TokenUsage{Input: nil, Output: nil},
 		Truncated:   false,
 		FilesRead:   []map[string]any{},
+		PromptMeta:  nil,
 		Session:     nil,
 	}
 }

@@ -42,6 +42,43 @@ func TestSSEStreamErrorsOnUnexpectedEOF(t *testing.T) {
 	}
 }
 
+func TestSSEStreamParsesStopReasonOnMessageDelta(t *testing.T) {
+	body := strings.Join([]string{
+		`data: {"Message":"{\"event\":\"reason\",\"data\":{\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":42}}}}"}`,
+		`data: {"done":true}`,
+		"",
+	}, "\n")
+	stream := NewSSEStream(&http.Response{Body: ioNopCloser{Reader: strings.NewReader(body)}})
+
+	event, err := stream.Next(context.Background())
+	if err != nil {
+		t.Fatalf("next usage: %v", err)
+	}
+	if event.Type != "usage" || event.StopReason != "max_tokens" {
+		t.Fatalf("unexpected usage event: %+v", event)
+	}
+	if event.Usage == nil || event.Usage.Output == nil || *event.Usage.Output != 42 {
+		t.Fatalf("usage = %+v", event.Usage)
+	}
+}
+
+func TestSSEStreamSupportsNestedContentResult(t *testing.T) {
+	body := strings.Join([]string{
+		`data: {"Message":"{\"event\":\"content\",\"data\":{\"content\":{\"type\":\"result\",\"result\":\"hello\",\"stop_reason\":\"end_turn\"}}}"}`,
+		`data: {"done":true}`,
+		"",
+	}, "\n")
+	stream := NewSSEStream(&http.Response{Body: ioNopCloser{Reader: strings.NewReader(body)}})
+
+	event, err := stream.Next(context.Background())
+	if err != nil {
+		t.Fatalf("next content: %v", err)
+	}
+	if event.Type != "content" || event.Text != "hello" || !event.FromContent || event.StopReason != "end_turn" {
+		t.Fatalf("unexpected content event: %+v", event)
+	}
+}
+
 type ioNopCloser struct {
 	Reader *strings.Reader
 }

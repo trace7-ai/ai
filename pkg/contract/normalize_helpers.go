@@ -53,3 +53,31 @@ func normalizeInt(raw any, defaultValue, min, max int, field string) (int, error
 		return 0, fmt.Errorf("%s must be an integer between %d and %d", field, min, max)
 	}
 }
+
+func normalizeTimeout(raw any) (int, error) {
+	if raw == nil {
+		return DefaultTimeoutSec, nil
+	}
+	switch value := raw.(type) {
+	case int:
+		return validateTimeout(value)
+	case float64:
+		result := int(value)
+		if float64(result) != value {
+			return 0, fmt.Errorf("timeout_sec must be 0 or an integer between 10 and %d", MaxTimeoutSec)
+		}
+		return validateTimeout(result)
+	default:
+		return 0, fmt.Errorf("timeout_sec must be 0 or an integer between 10 and %d", MaxTimeoutSec)
+	}
+}
+
+func validateTimeout(value int) (int, error) {
+	if value == 0 {
+		return 0, nil
+	}
+	if value < 10 || value > MaxTimeoutSec {
+		return 0, fmt.Errorf("timeout_sec must be 0 or an integer between 10 and %d", MaxTimeoutSec)
+	}
+	return value, nil
+}

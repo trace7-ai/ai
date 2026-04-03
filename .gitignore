@@ -7,5 +7,8 @@ history
 last_conversation
 conversations/
 sessions/
+jobs/
+session_pins/
+tmp_*.json
 
 .DS_Store

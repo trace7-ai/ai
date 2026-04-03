@@ -7,7 +7,6 @@ import (
 
 	"mira/pkg/contract"
 	"mira/pkg/prompt"
-	"mira/pkg/roles"
 	"mira/pkg/transport"
 )
 
@@ -18,13 +17,10 @@ const (
 	ExitTimeout        = 3
 )
 
-func ExecuteRequest(ctx context.Context, request contract.Request, client transport.Transport) (contract.Response, int) {
-	role, ok := roles.Get(request.Role)
-	if !ok {
-		return contract.BuildErrorResponse("invalid_request", "unsupported role: "+request.Role, &request.Role, request.RequestID, nil), ExitInvalidRequest
-	}
+func ExecuteRequest(ctx context.Context, request contract.Request, client transport.Transport, onChunk func([]byte)) (contract.Response, int) {
 	modelName := clientModelName(client)
-	stream, err := client.Execute(ctx, prompt.Build(request, role), transport.Options{
+	promptPayload := prompt.Build(request)
+	stream, err := client.Execute(ctx, promptPayload, transport.Options{
 		MaxTokens:  request.MaxTokens,
 		TimeoutSec: request.TimeoutSec,
 		RequestID:  request.RequestID,
@@ -32,23 +28,33 @@ func ExecuteRequest(ctx context.Context, request contract.Request, client transp
 	})
 	if err != nil {
 		code, exitCode := executionErrorDetails(err)
-		return contract.BuildErrorResponse(code, err.Error(), &request.Role, request.RequestID, modelName), exitCode
+		response := contract.BuildErrorResponse(code, err.Error(), &request.Role, request.RequestID, modelName)
+		response.PromptMeta = promptPayload.Meta
+		return response, exitCode
 	}
 	defer stream.Close()
-	text, usage, err := collectStream(ctx, stream)
+	text, usage, truncated, err := collectStream(ctx, stream, onChunk)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return contract.BuildErrorResponse("timeout", err.Error(), &request.Role, request.RequestID, modelName), ExitTimeout
+			response := contract.BuildErrorResponse("timeout", err.Error(), &request.Role, request.RequestID, modelName)
+			response.PromptMeta = promptPayload.Meta
+			return response, ExitTimeout
 		}
 		code, exitCode := executionErrorDetails(err)
-		return contract.BuildErrorResponse(code, err.Error(), &request.Role, request.RequestID, modelName), exitCode
+		response := contract.BuildErrorResponse(code, err.Error(), &request.Role, request.RequestID, modelName)
+		response.PromptMeta = promptPayload.Meta
+		return response, exitCode
 	}
-	result, err := ParseModelResult(text, role, request.ContentFormat)
+	result, contentType, err := ParseModelResult(text, request.ContentFormat)
 	if err != nil {
-		return contract.BuildErrorResponse("execution_failed", err.Error(), &request.Role, request.RequestID, modelName), ExitExecutionError
+		response := contract.BuildErrorResponse("execution_failed", err.Error(), &request.Role, request.RequestID, modelName)
+		response.PromptMeta = promptPayload.Meta
+		return response, ExitExecutionError
 	}
-	response := contract.BuildSuccessResponse(request.Role, request.RequestID, modelName, result, request.ContentFormat)
+	response := contract.BuildSuccessResponse(request.Role, request.RequestID, modelName, result, contentType)
 	response.TokenUsage = usage
+	response.Truncated = truncated
+	response.PromptMeta = promptPayload.Meta
 	return response, ExitOK
 }
 

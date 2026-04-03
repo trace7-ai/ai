@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"mira/pkg/contract"
-	"mira/pkg/routing"
+	"mira/pkg/roles"
 )
 
 func LoadRequestFromCLI(args []string, cwd string) (contract.Request, error) {
@@ -47,14 +47,13 @@ func buildPromptModeRequest(parsed ParsedArgs, cwd string) (contract.Request, er
 	if err != nil {
 		return contract.Request{}, err
 	}
+	sessionMode, sessionID, err := resolvePromptSession(parsed, cwd)
+	if err != nil {
+		return contract.Request{}, err
+	}
 	roleName := parsed.Role
 	if roleName == "" {
-		roleName = routing.InferRole(
-			parsed.InlineTask,
-			context["diff"].(string),
-			parsed.Files,
-			len(emptyAnySlice(context["docs"])) > 0,
-		)
+		roleName = roles.Assistant
 	}
 	taskDescription := parsed.TaskDesc
 	if taskDescription == "" {
@@ -66,8 +65,8 @@ func buildPromptModeRequest(parsed ParsedArgs, cwd string) (contract.Request, er
 		"request_id":     emptyToNil(parsed.RequestID),
 		"content_format": parsed.ContentFormat,
 		"session": map[string]any{
-			"mode":       sessionMode(parsed.Session),
-			"session_id": emptyToNil(parsed.Session),
+			"mode":       sessionMode,
+			"session_id": sessionID,
 			"context_hint": map[string]any{
 				"workspace_root":   resolveWorkspaceRoot(parsed.WorkspaceRoot, cwd),
 				"task_description": taskDescription,

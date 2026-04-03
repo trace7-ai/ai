@@ -1,9 +1,8 @@
 package session
 
-import (
-	"fmt"
-	"time"
-)
+import "fmt"
+
+const legacyExpiredStatus = "expired"
 
 func (store *Store) Inspect(sessionID string) (Snapshot, error) {
 	if err := requireSessionID(sessionID); err != nil {
@@ -16,10 +15,10 @@ func (store *Store) Inspect(sessionID string) (Snapshot, error) {
 	if record == nil {
 		return Snapshot{Status: MissingStatus}, nil
 	}
-	if record.Status == ActiveStatus {
+	if record.Status == ActiveStatus || record.Status == legacyExpiredStatus {
 		return store.inspectActive(sessionID, *record)
 	}
-	if record.Status == ExpiredStatus || record.Status == InvalidStatus {
+	if record.Status == InvalidStatus {
 		return Snapshot{Status: record.Status, Record: record, Reason: record.LastError}, nil
 	}
 	reason := fmt.Sprintf("unsupported session status: %s", record.Status)
@@ -33,20 +32,12 @@ func (store *Store) inspectActive(sessionID string, record Record) (Snapshot, er
 	if record.TurnCount < 0 {
 		return store.markInvalidSnapshot(sessionID, record, "active session has invalid turn_count")
 	}
-	expiresAt, err := expiresAt(record)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	if expiresAt.Before(time.Now().UTC()) {
-		expired := withStatus(record, ExpiredStatus, "session ttl elapsed")
-		if err := store.Save(sessionID, expired); err != nil {
+	active, changed := normalizePersistentRecord(record)
+	if changed {
+		if err := store.Save(sessionID, active); err != nil {
 			return Snapshot{}, err
 		}
-		return Snapshot{Status: ExpiredStatus, Record: &expired, Reason: expired.LastError}, nil
 	}
-	active := record
-	iso := toISOFormat(expiresAt)
-	active.ExpiresAt = iso
 	return Snapshot{Status: ActiveStatus, Record: &active}, nil
 }
 
@@ -56,4 +47,18 @@ func (store *Store) markInvalidSnapshot(sessionID string, record Record, reason 
 		return Snapshot{}, err
 	}
 	return Snapshot{Status: InvalidStatus, Record: &invalid, Reason: invalid.LastError}, nil
+}
+
+func normalizePersistentRecord(record Record) (Record, bool) {
+	normalized := record
+	changed := false
+	if normalized.Status != ActiveStatus {
+		normalized.Status = ActiveStatus
+		changed = true
+	}
+	if normalized.LastError != nil {
+		normalized.LastError = nil
+		changed = true
+	}
+	return normalized, changed
 }

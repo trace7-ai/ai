@@ -2,9 +2,9 @@ package contract
 
 const (
 	SchemaVersion      = "v1"
-	DefaultMaxTokens   = 4000
-	MaxMaxTokens       = 16000
-	DefaultTimeoutSec  = 180
-	MaxTimeoutSec      = 600
+	DefaultMaxTokens   = 32000
+	MaxMaxTokens       = 32000
+	DefaultTimeoutSec  = 0
+	MaxTimeoutSec      = 900
 	DefaultMaxFileSize = 512 * 1024
 )
